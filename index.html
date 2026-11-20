@@ -87,6 +87,16 @@ ol{list-style:none;margin:0;padding:0;border-top:1px solid var(--line)}
 .detail a{color:var(--focus);font-size:.875rem;justify-self:start}
 .empty{padding:28px 4px;color:var(--muted);font-style:italic;font-family:var(--serif);font-size:1.15rem}
 
+.move{margin-top:40px;padding-top:20px;border-top:1px solid var(--line);display:grid;gap:10px;justify-items:start}
+.move h2{font:400 1.5rem/1.2 var(--serif);margin:0}
+.move p,.incoming p{margin:0;color:var(--muted);font-size:.9375rem;max-width:60ch}
+.btn{font:600 .9375rem var(--sans);color:var(--surface);background:var(--ink);border:1px solid var(--ink);border-radius:999px;padding:10px 18px;cursor:pointer}
+.btn.ghost{background:none;color:var(--ink);border-color:var(--line)}
+.linkbox{width:100%;font:400 .875rem var(--sans);padding:9px 11px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)}
+.ok{color:var(--done);font-weight:600;font-size:.875rem}
+.incoming{background:var(--surface);border:1.5px solid var(--done);border-radius:10px;padding:14px 16px;margin:0 0 22px;display:grid;gap:12px}
+.incoming p{color:var(--ink)}
+.incoming div{display:flex;flex-wrap:wrap;gap:8px}
 footer{margin-top:36px;font-size:.75rem;color:var(--muted);display:grid;gap:6px}
 .status{font-weight:600;color:var(--ink)}
 button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-visible,a:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
@@ -167,6 +177,7 @@ try{Object.assign(ui,JSON.parse(localStorage.getItem("cf-ui")||"{}"))}catch(e){}
 if(!["all","todo","visited","dined"].includes(ui.filter))ui.filter=ui.filter==="done"?"dined":"all";
 try{const s=JSON.parse(sessionStorage.getItem("cf-restore")||"null");if(s){ui.open=s.open;sessionStorage.removeItem("cf-restore");requestAnimationFrame(()=>scrollTo(0,s.y||0))}}catch(e){}
 let mode="pending", artifact=null, timer=null, status="";
+const standalone=!window.claude;
 
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const fmt=d=>{if(!d)return"";const[y,m,dd]=d.split("-").map(Number);return new Date(y,m-1,dd).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"})};
@@ -206,8 +217,16 @@ function render(){
     : ui.filter==="visited" ? "Colleges you’ve visited but not dined at will appear here."
     : "You’ve dined at every college. Time to start again from Peterhouse.";
   const statusText = status || (mode==="live"?"Changes save to this page, so they’re there on any device.":mode==="local"?"Changes are saved in this browser only.":mode==="readonly"?"You’re viewing someone else’s list, so it’s read-only.":"");
+  let incoming="";
+  if(ui.pending){const k=countOf(ui.pending);
+    incoming=`<div class="incoming" role="region" aria-label="List from a progress link"><p>This link has a saved list: ${k.d} dined and ${k.v} visited. Load it here? It replaces the ticks saved in this browser. Your notes are kept.</p><div><button class="btn" data-incoming="load">Load this list</button><button class="btn ghost" data-incoming="keep">Keep this browser’s list</button></div></div>`}
+  const move=standalone?`<section class="move" aria-labelledby="move-h"><h2 id="move-h">Use your list on another device</h2>
+<p>Your ticks are saved in this browser only. Copy your progress link, then open it on your phone or laptop to bring your list across. You can also bookmark it as a backup. Notes stay on this device.</p>
+<button class="btn" data-copy>Copy my progress link</button>
+${ui.showLink?`<input class="linkbox" readonly value="${esc(ui.showLink)}" aria-label="Your progress link" data-linkbox>`:""}
+${ui.moveMsg?`<span class="ok" role="status">${esc(ui.moveMsg)}</span>`:""}</section>`:"";
   document.getElementById("app").innerHTML=`
-<header><h1>Thirty-one formals</h1><p class="tally">${tally}</p>
+<header><h1>Thirty-one formals</h1><p class="tally">${tally}</p>${incoming}
 <section class="plate" aria-label="Arms of the colleges, oldest first">
 <div class="plate-head"><span>The arms of the colleges</span><span>${dinedN} dined${visN?`, ${visN} visited`:""}</span></div>
 <ul class="arms">${arms}</ul>
@@ -219,9 +238,36 @@ function render(){
 <button data-filter="all" aria-pressed="${ui.filter==="all"}">All</button><button data-filter="todo" aria-pressed="${ui.filter==="todo"}">To go ${left}</button><button data-filter="visited" aria-pressed="${ui.filter==="visited"}">Visited ${visN}</button><button data-filter="dined" aria-pressed="${ui.filter==="dined"}">Dined ${dinedN}</button></div>
 <select data-sort aria-label="Sort"><option value="year"${ui.sort==="year"?" selected":""}>Oldest first</option><option value="name"${ui.sort==="name"?" selected":""}>A to Z</option></select></div>
 <ol>${rows||`<li class="empty">${empty}</li>`}</ol>
+${move}
 <footer><span class="status" aria-live="polite">${esc(statusText)}</span>
 <span>Coats of arms from Wikipedia and Wikimedia Commons, published there under public-domain or Creative Commons licences. Founding dates from Wikipedia’s list of Cambridge colleges.</span></footer>`;
 }
+
+// progress links: lets the standalone site (e.g. GitHub Pages) carry a list between devices.
+// Format: #p= one digit per college in L's order (0 none, 1 visited, 2 dined), then -YYMMDD per dined college.
+// L's order must never change, or old links would map to the wrong colleges.
+function encodeProgress(){
+  let s="";const d=[];
+  for(const c of L){const e=ent(c.id);const k=e.dined?2:(e.visited?1:0);s+=k;
+    if(k===2)d.push(/^\d{4}-\d\d-\d\d$/.test(e.date||"")?e.date.slice(2).replace(/-/g,""):"000000")}
+  return "p="+s+(d.length?"-"+d.join(""):"");
+}
+function decodeProgress(h){
+  const m=new RegExp("^#?p=([012]{"+N+"})(?:-(\\d*))?$").exec(h||"");if(!m)return null;
+  const ds=m[2]||"";let j=0;const out={};
+  L.forEach((c,i)=>{const k=+m[1][i];if(!k)return;const e={visited:true};
+    if(k===2){e.dined=true;const x=ds.slice(j*6,j*6+6);j++;if(/^\d{6}$/.test(x)&&x!=="000000")e.date="20"+x.slice(0,2)+"-"+x.slice(2,4)+"-"+x.slice(4,6)}
+    out[c.id]=e});
+  return out;
+}
+function clearHash(){try{history.replaceState(null,"",location.pathname+location.search)}catch(e){}}
+function applyIncoming(inc){
+  const next={entries:{}};
+  for(const c of L){const old=state.entries[c.id]||{},n=inc[c.id];
+    if(n||old.note)next.entries[c.id]=Object.assign({},n||{},old.note?{note:old.note}:{})}
+  state=next;ui.pending=null;clearHash();persist();ui.moveMsg="Your list from the link is loaded.";render();
+}
+const countOf=entries=>{let d=0,v=0;for(const e of Object.values(entries)){if(e.dined)d++;else if(e.visited)v++}return {d,v}};
 
 function saveUI(){try{localStorage.setItem("cf-ui",JSON.stringify({filter:ui.filter,sort:ui.sort}))}catch(e){}}
 function docFor(s){
@@ -255,6 +301,13 @@ app.addEventListener("click",ev=>{
     render(); persist(); document.querySelector(sel)?.focus(); return}
   if(t.dataset.open){ui.open=ui.open===t.dataset.open?null:t.dataset.open;render();document.querySelector(`[data-open="${t.dataset.open}"]`)?.focus();return}
   if(t.dataset.filter){ui.filter=t.dataset.filter;saveUI();render();return}
+  if(t.dataset.copy!==undefined){
+    const url=location.origin+location.pathname+"#"+encodeProgress();
+    const show=()=>{ui.showLink=url;ui.moveMsg="Copy this link and open it on your other device.";render();const b=document.querySelector("[data-linkbox]");if(b){b.focus();b.select()}};
+    const ok=()=>{ui.showLink=null;ui.moveMsg="Link copied. Open it on your other device to load your list.";render();document.querySelector("[data-copy]")?.focus()};
+    try{if(navigator.clipboard&&window.isSecureContext)navigator.clipboard.writeText(url).then(ok,show);else show()}catch(e){show()}
+    return}
+  if(t.dataset.incoming){if(t.dataset.incoming==="load")applyIncoming(ui.pending);else{ui.pending=null;clearHash();render()}return}
   if(t.dataset.jump){const id=t.dataset.jump;ui.filter="all";ui.open=id;render();const r=document.getElementById("c-"+id);
     r?.scrollIntoView({behavior:matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth",block:"center"});r?.querySelector(".main")?.focus({preventScroll:true});}
 });
@@ -272,6 +325,11 @@ render();
   if(artifact){mode="live"}else{
     mode="local";
     try{const s=JSON.parse(localStorage.getItem("cf-state")||"null");if(s&&s.entries&&!Object.keys(state.entries).length)state=migrate(s)}catch(e){}
+    if(standalone){const inc=decodeProgress(location.hash);
+      if(inc){const hasLocal=Object.values(state.entries).some(e=>e&&(e.visited||e.dined));
+        if(location.hash.slice(1)===encodeProgress())clearHash();
+        else if(!hasLocal){applyIncoming(inc);return}
+        else ui.pending=inc}}
   }
   render();
 })();
