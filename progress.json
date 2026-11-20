@@ -1,0 +1,34 @@
+{
+ "entries": {
+  "johns": {
+   "date": "2026-10-25",
+   "dined": true,
+   "visited": true
+  },
+  "girton": {
+   "date": "2026-10-25",
+   "dined": true,
+   "visited": true
+  },
+  "darwin": {
+   "date": "2026-10-25",
+   "dined": true,
+   "visited": true
+  },
+  "selwyn": {
+   "date": "2026-10-25",
+   "dined": true,
+   "visited": true
+  },
+  "hughes": {
+   "date": "2026-10-25",
+   "dined": true,
+   "visited": true
+  },
+  "clare": {
+   "date": "2026-10-25",
+   "dined": false,
+   "visited": true
+  }
+ }
+}
