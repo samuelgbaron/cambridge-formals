@@ -6,8 +6,14 @@ Live site: https://samuelgbaron.github.io/cambridge-formals/
 
 - Tap the archway when you've visited a college, and the knife and fork when you've dined there.
 - A college's coat of arms turns to full colour once you've dined there, and shows in grey if you've only visited.
-- Progress is saved in your own browser, so each person who opens the site gets their own list.
-- To move your list to another device, tap **Copy my progress link** at the bottom of the page and open that link on the other device. The link also works as a backup bookmark. Notes stay on the device where you wrote them.
+
+## Where the list is saved
+
+The list is saved in `progress.json` on the `data` branch of this repository. The site reads it from there, so every device shows the same list. Keeping it off `main` means saving a tick doesn't rebuild the site.
+
+Anyone can view the list. To edit from a browser, connect that browser once with a fine-grained GitHub token. Instructions are at the bottom of the site. The token should have access to this repository only, with **Contents** set to **Read and write**. It's kept in that browser and only sent to GitHub.
+
+Everything in the list, including notes, is public, because the repository is public.
 
 The whole site is a single `index.html` with no build step.
 
